@@ -7,7 +7,7 @@ defmodule StackerTest do
   end
 
   test "return an initial empty list", %{stacker: stacker} do
-    assert KV.Registry.push(stacker, :kernel) == :ok
-    assert KV.Registry.pop(stacker) == :kernel
+    assert KV.Stacker.push(stacker, :kernel) == :ok
+    assert KV.Stacker.pop(stacker) == :kernel
   end
 end

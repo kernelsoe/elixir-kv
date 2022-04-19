@@ -6,8 +6,13 @@ defmodule RegistryTest do
     %{registry: registry}
   end
 
-  test "return an initial empty list", %{registry: registry} do
-    assert KV.Registry.push(registry, :kernel) == :ok
-    assert KV.Registry.pop(registry) == :kernel
+  test "spawn buckets", %{registry: registry} do
+    IO.inspect(registry)
+    assert KV.Registry.lookup(registry, "shopping") == :error
+    assert :created = KV.Registry.create(registry, "shopping")
+    assert {:ok, bucket} = KV.Registry.lookup(registry, "shopping")
+
+    KV.Bucket.put(bucket, "milk", 3)
+    assert KV.Bucket.get(bucket, "milk") == 3
   end
 end
