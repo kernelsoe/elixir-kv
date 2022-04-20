@@ -3,12 +3,12 @@ defmodule KV.Registry do
 
   # Client API
 
-  def start_link(defaults, opts) do
-    GenServer.start_link(__MODULE__, defaults, opts)
-  end
+  # def start_link(defaults, opts) do
+  #   GenServer.start_link(__MODULE__, defaults, opts)
+  # end
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, %{}, opts)
+    GenServer.start_link(__MODULE__, :ok, opts)
   end
 
   def lookup(server, name) do
@@ -22,23 +22,44 @@ defmodule KV.Registry do
   # Call backs
 
   @impl true
-  def init(state \\ %{}) do
-    {:ok, state}
+  def init(:ok) do
+    names = %{}
+    refs = %{}
+
+    {:ok, {names, refs}}
   end
 
   @impl true
-  def handle_call({:lookup, name}, _from, names_state) do
-    {:reply, Map.fetch(names_state, name), names_state}
+  def handle_call({:lookup, name}, _from, state) do
+    {names, _} = state
+    {:reply, Map.fetch(names, name), state}
   end
 
   @impl true
-  def handle_call({:create, name}, _from, names_state) do
-    if Map.has_key?(names_state, name) do
-      {:reply, :duplicate, names_state}
+  def handle_call({:create, name}, _from, {names, refs}) do
+    if Map.has_key?(names, name) do
+      {:reply, :duplicate, {names, refs}}
     else
       {:ok, bucket} = KV.Bucket.start_link([])
-      names_state = Map.put(names_state, name, bucket)
-      {:reply, :created, names_state}
+      ref = Process.monitor(bucket)
+
+      refs = Map.put(refs, ref, name)
+      names = Map.put(names, name, bucket)
+
+      {:reply, :created, {names, refs}}
     end
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, {names, refs}) do
+    {name, refs} = Map.pop(refs, ref)
+    names = Map.delete(names, name)
+    {:noreply, {names, refs}}
+  end
+
+  def handle_info(msg, state) do
+    require Logger
+    Logger.debug("Unexpected KV msg in KV.Registry: #{inspect(msg)}")
+    {:noreply, state}
   end
 end
